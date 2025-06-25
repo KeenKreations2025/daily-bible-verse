@@ -1,0 +1,225 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Bible Verse</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-size: cover;
+            background-position: center;
+            transition: background-image 0.5s ease-in-out;
+        }
+        .verse-container {
+            background-color: rgba(255, 255, 255, 0.85);
+            border-radius: 1rem;
+            padding: 2rem;
+            max-width: 90%;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .verse-text {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #1a202c;
+            margin-bottom: 1rem;
+        }
+        .reference-text {
+            font-size: 1.25rem;
+            font-style: italic;
+            color: #2d3748;
+            margin-bottom: 1rem;
+        }
+        .message-text {
+            font-size: 1rem;
+            color: #4a5568;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="verse-container">
+        <div id="verse" class="verse-text"></div>
+        <div id="reference" class="reference-text"></div>
+        <div id="message" class="message-text"></div>
+    </div>
+
+    <script>
+        // Array of gradient backgrounds for visual variety
+        const backgrounds = [
+            "linear-gradient(to right, #a1c4fd, #c2e9fb)",
+            "linear-gradient(to right, #f6d365, #fda085)",
+            "linear-gradient(to right, #84fab0, #8fd3f4)",
+            "linear-gradient(to right, #ff9a9e, #fad0c4)",
+            "linear-gradient(to right, #d4fc79, #96e6a1)",
+            "linear-gradient(to right, #fbc7d4, #9796f0)",
+            "linear-gradient(to right, #ffecd2, #fcb69f)",
+            "linear-gradient(to right, #a8e063, #56ab2f)",
+            "linear-gradient(to right, #e0c3fc, #8ec5fc)",
+            "linear-gradient(to right, #ffafbd, #ffc3a0)",
+            "linear-gradient(to right, #74ebd5, #acb6e5)",
+            "linear-gradient(to right, #ff9966, #ff5e62)",
+            "linear-gradient(to right, #b6fbff, #83a4d4)",
+            "linear-gradient(to right, #f4e2d8, #f6c6cb)",
+            "linear-gradient(to right, #a1feeb, #70e1f5)",
+            "linear-gradient(to right, #ffdee9e, #b5fffc6)",
+            "linear-gradient(to right, #, #d3cce3, #e9e4f0,)",
+            "linear-gradient(to right, #f7971e, #ffd200)",
+            "linear-gradient(to right, #ff6a88, #ff99ac)",
+            "linear-gradient(to right, #, #c6ffdd, #fbd786)",
+            "linear-gradient(to right, #r, #77a1d3, #79cbca5)"
+        ];
+
+        // Message templates for generating motivational messages
+        const messageTemplates = [
+            "Reflect on [REFERENCE] and let it guide your heart. God’s Word brings hope and strength to your journey.",
+            "[REFERENCE] reminds us of God’s steadfast love. Trust in Him to guide you through every trial.",
+            "Let [REFERENCE] inspire you today. God’s wisdom offers peace and direction in all moments.",
+            "Embrace the truth of [REFERENCE]. The Lord is your refuge, providing comfort and courage.",
+            "[REFERENCE] calls us to faith. Lean on God’s grace to find purpose and joy.",
+            "God speaks through [REFERENCE]. His presence offers healing and hope to your soul.",
+            "Meditate on [REFERENCE] and feel God’s peace. He is with you, guiding you toward His light.",
+            "[REFERENCE] offers divine encouragement. Trust in God’s plan and walk boldly in His love.",
+            "Let [REFERENCE] be a uplift to your spirit. God’s strength sustains you through every trial.",
+            "[REFERENCE] is a reminder of your God’s faithfulness. Rest in His promises and find renewed hope."
+        ];
+
+        // Predefined list of verse references for daily selection
+        const verseReferences = [
+            "JER.29.11", // Jeremiah 29:11
+            "PSA.23.1",  // Psalm 23:1
+            "PHP.4.13",  // Philippians 4:13
+            "JHN.3.16",  // John 3:16
+            "ROM.8.28",  // Romans 8:28
+            "ISA.40.31", // Isaiah 40:31
+            "PSA.46.1",  // Psalm 46:1
+            "MAT.11.28", // Matthew 11:28
+            "PRO.3.5",   // Proverbs 3:5
+            "JOS.1.9",   // Joshua 1:9
+            "1PE.5.7",   // 1 Peter 5:7
+            "PSA.34.18", // Psalm 34:18
+            "JHN.14.6",  // John 14:6
+            "ISA.41.10", // Isaiah 41:10
+            "PHP.4.6",   // Philippians 4:6
+            "PSA.28.7",  // Psalm 28:7
+            "NEH.8.10",  // Nehemiah 8:10
+            "EXO.14.14", // Exodus 14:14
+            "PSA.107.1", // Psalm 107:1
+            "JHN.14.27", // John 14:27
+            "ISA.40.29"  // Isaiah 40:29
+        ];
+
+        // Function to get a daily index for backgrounds, messages, and verses
+        function getDailyIndex(arrayLength) {
+            const startDate = new Date('2025-01-01');
+            const today = new Date();
+            const diffTime = Math.abs(today - startDate);
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays % arrayLength;
+        }
+
+        // Function to generate a motivational message based on the verse
+        function generateMotivationalMessage(reference) {
+            const messageIndex = getDailyIndex(messageTemplates.length);
+            return messageTemplates[messageIndex].replace("[REFERENCE]", reference);
+        }
+
+        // Function to fetch a verse from API.Bible
+        async function fetchDailyVerse() {
+            const apiKey = '9dd981e1a04854c62564db1b9662dc8e'; // Replace with your API.Bible key
+            const bibleId = 'de4e12af7f28f599-02'; // KJV Bible ID
+            const verseIndex = getDailyIndex(verseReferences.length);
+            const verseId = verseReferences[verseIndex];
+            const url = `https://api.scripture.api.bible/v1/bibles/${bibleId}/verses/${verseId}?content-type=text&include-verse-numbers=false`;
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'api-key': apiKey
+                    }
+                });
+                if (!response.ok) throw new Error('Failed to fetch verse');
+                const data = await response.json();
+                const reference = data.data.reference;
+                const verseText = data.data.content;
+                return {
+                    verse: verseText,
+                    reference: reference,
+                    message: generateMotivationalMessage(reference)
+                };
+            } catch (error) {
+                console.error('Error fetching verse:', error);
+                return {
+                    verse: "Trust in the Lord with all your heart and lean not on your own understanding.",
+                    reference: "Proverbs 3:5",
+                    message: "Reflect on Proverbs 3:5 and let it guide your heart. God’s Word brings hope and strength to your journey."
+                };
+            }
+        }
+
+        // Function to update content on the page
+        async function updateContent() {
+            const content = await fetchDailyVerse();
+            document.getElementById('verse').textContent = content.verse;
+            document.getElementById('reference').textContent = content.reference;
+            document.getElementById('message').textContent = content.message;
+            const backgroundIndex = getDailyIndex(backgrounds.length);
+            document.body.style.backgroundImage = backgrounds[backgroundIndex];
+        }
+
+        // Update content on page load
+        updateContent();
+
+        // Update daily at midnight
+        setInterval(() => {
+            const now = new Date();
+            if (now.getHours() === 0 && now.getMinutes() === 0) {
+                updateContent();
+            }
+        }, 60000);
+    </script>
+</body>
+</html>
